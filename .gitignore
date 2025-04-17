@@ -1,2 +1,6 @@
 wandb/
-none/
+**/*.json
+**/*.bin
+**/*.safetensors
+**/*.pt
+**/*.pth
