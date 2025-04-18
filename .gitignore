@@ -4,3 +4,5 @@ wandb/
 **/*.safetensors
 **/*.pt
 **/*.pth
+**venv/
+

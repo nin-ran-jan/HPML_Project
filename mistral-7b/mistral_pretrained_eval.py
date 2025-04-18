@@ -1,9 +1,12 @@
+
 import torch
 import time
 import wandb
 
 from datasets import load_dataset
 from transformers import AutoTokenizer, AutoModelForCausalLM
+from transformers import BitsAndBytesConfig
+
 
 WANDB_PROJECT = "final_project"
 MODEL_NAME = "mistralai/Mistral-7B-v0.1"
@@ -14,20 +17,26 @@ MAX_TEST_SAMPLES = 100
 wandb.init(
     project=WANDB_PROJECT,
     entity="ns3888-hpml",
-    name="mistral-7b-pretrained-eval",
+    name="mistral-7b-pretrained-eval-quantized",
     config={
         "eval_split": f"test[:{MAX_TEST_SAMPLES}]",
         "eval_max_new_tokens": MAX_NEW_TOKENS,
         "device": DEVICE,
-        "quantized": False,
+        # "quantized": False,
+        "quantized": True,
         "fine_tuned": False
     }
 )
 
 # Load model + tokenizer
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
-model = AutoModelForCausalLM.from_pretrained(MODEL_NAME, torch_dtype=torch.float16 if DEVICE == "cuda" else torch.float32)
-model.to(DEVICE)
+bnb_config = BitsAndBytesConfig(load_in_8bit=True)
+model = AutoModelForCausalLM.from_pretrained(
+    MODEL_NAME, 
+    device_map="auto", 
+    quantization_config=bnb_config # comment out if you dont want quantization
+)
+# model.to(DEVICE) # comment out when doing quantization
 model.eval()
 
 # Load same test set
@@ -82,3 +91,4 @@ wandb.log({
 print(f"[Eval Done] Perplexity: {perplexity:.2f} | Samples: {len(samples)}")
 
 wandb.finish()
+
