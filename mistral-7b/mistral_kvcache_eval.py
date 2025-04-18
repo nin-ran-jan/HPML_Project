@@ -73,11 +73,16 @@ for i, prompt in enumerate(samples):
         })
 
 # perplexity
+torch.cuda.empty_cache()
+model.config.use_cache = False
+
 encodings = tokenizer(" ".join(samples), return_tensors="pt").to(DEVICE)
 labels = encodings["input_ids"]
 with torch.no_grad():
     loss = model(**encodings, labels=labels).loss
     perplexity = torch.exp(loss).item()
+    
+model.config.use_cache = USE_KV_CACHE
 
 wandb.log({
     "avg_latency_per_token": total_latency / len(samples),
