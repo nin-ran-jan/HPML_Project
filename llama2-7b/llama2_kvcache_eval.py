@@ -1,6 +1,7 @@
 import math, time, torch, wandb
 from datasets import load_dataset
 from transformers import AutoTokenizer, AutoModelForCausalLM
+from peft import PeftModel 
 
 MAX_NEW_TOKENS = 50
 MAX_TEST_SAMPLES = 100
@@ -8,7 +9,8 @@ USE_KV_CACHE = True
 
 
 WANDB_PROJECT = "final_project"
-MODEL_DIR = "llama2-7b-baseline-wikitext"
+BASE_MODEL  = "meta-llama/Llama-2-7b-hf"       
+ADAPTER_DIR = "llama2-7b-baseline-wikitext"         
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 wandb.init(
@@ -21,9 +23,13 @@ wandb.init(
     },
 )
 
-tokenizer = AutoTokenizer.from_pretrained(MODEL_DIR, use_fast=False, local_files_only=True)
-model = AutoModelForCausalLM.from_pretrained(MODEL_DIR, device_map="auto",
-                                             torch_dtype=torch.float16, local_files_only=True)
+tokenizer = AutoTokenizer.from_pretrained(BASE_MODEL, use_fast=False)
+base_model = AutoModelForCausalLM.from_pretrained(
+    BASE_MODEL,
+    device_map="auto",
+    torch_dtype=torch.float16,
+)
+model = PeftModel.from_pretrained(base_model, ADAPTER_DIR)
 model.eval()
 model.config.use_cache = USE_KV_CACHE
 
