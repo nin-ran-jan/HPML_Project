@@ -6,7 +6,7 @@ from datasets import load_dataset
 from transformers import AutoTokenizer, AutoModelForCausalLM
 
 WANDB_PROJECT = "final_project"
-MODEL_DIR = "./llama2-baseline-wikitext-final"
+MODEL_DIR = "llama2-7b-baseline-wikitext"
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 MAX_NEW_TOKENS = 50
 MAX_TEST_SAMPLES = 100
@@ -39,7 +39,7 @@ for i, prompt in enumerate(samples):
             **inputs,
             max_new_tokens=MAX_NEW_TOKENS,
             do_sample=False,
-            use_cache=True
+            use_cache=False
         )
     end = time.time()
 
