@@ -55,7 +55,6 @@ from transformers.utils.versions import require_version
 from transformers import BitsAndBytesConfig
 from peft import prepare_model_for_kbit_training, LoraConfig, get_peft_model
 
-
 import wandb
 
 # Will error if the minimal version of Transformers is not installed. Remove at your own risks.
@@ -447,34 +446,24 @@ def main():
             else getattr(torch, model_args.torch_dtype)
         )
 
-        
         # model = AutoModelForCausalLM.from_pretrained(
         #     model_args.model_name_or_path,
+        #     from_tf=bool(".ckpt" in model_args.model_name_or_path),
         #     config=config,
-        #     torch_dtype=torch.float16,  # or torch.bfloat16
-        #     device_map="auto",
+        #     cache_dir=model_args.cache_dir,
+        #     revision=model_args.model_revision,
+        #     token=model_args.token,
         #     trust_remote_code=model_args.trust_remote_code,
+        #     torch_dtype=torch_dtype,
+        #     low_cpu_mem_usage=model_args.low_cpu_mem_usage,
         # )
 
-        # bnb_config = BitsAndBytesConfig(
-        #     load_in_8bit=True,
-        #     llm_int8_threshold=6.0,
-        #     llm_int8_has_fp16_weight=True
-        # )
-
-        bnb_config = BitsAndBytesConfig(
-            load_in_4bit=True,
-            bnb_4bit_use_double_quant=True,
-            bnb_4bit_quant_type="nf4",
-            bnb_4bit_compute_dtype=torch.float16
-        )
+        bnb_config = BitsAndBytesConfig(load_in_8bit=True)
 
         model = AutoModelForCausalLM.from_pretrained(
             model_args.model_name_or_path,
-            config=config,
-            quantization_config=bnb_config,
-            torch_dtype=torch.float16,
             device_map="auto",
+            quantization_config=bnb_config,
             trust_remote_code=model_args.trust_remote_code,
         )
 
@@ -483,8 +472,8 @@ def main():
         lora_config = LoraConfig(
             r=8,
             lora_alpha=32,
-            target_modules=["q_proj", "k_proj", "v_proj", "o_proj"],
-            lora_dropout=0.05,
+            target_modules=["q_proj", "k_proj", "v_proj", "o_proj"],  # customize as needed
+            lora_dropout=0.1,
             bias="none",
             task_type="CAUSAL_LM"
         )
@@ -659,10 +648,7 @@ def main():
         elif last_checkpoint is not None:
             checkpoint = last_checkpoint
         train_result = trainer.train(resume_from_checkpoint=checkpoint)
-
-        # trainer.save_model()  # Saves the tokenizer too for easy upload
-        model.save_pretrained(training_args.output_dir)
-        tokenizer.save_pretrained(training_args.output_dir)
+        trainer.save_model()  # Saves the tokenizer too for easy upload
 
         metrics = train_result.metrics
 

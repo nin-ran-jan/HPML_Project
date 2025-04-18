@@ -28,7 +28,6 @@ wandb.init(
     }
 )
 
-# Load model + tokenizer
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
 bnb_config = BitsAndBytesConfig(load_in_8bit=True)
 model = AutoModelForCausalLM.from_pretrained(
@@ -39,12 +38,10 @@ model = AutoModelForCausalLM.from_pretrained(
 # model.to(DEVICE) # comment out when doing quantization
 model.eval()
 
-# Load same test set
 dataset = load_dataset("wikitext", "wikitext-2-raw-v1", split="test")
 dataset = dataset.select(range(MAX_TEST_SAMPLES))
 samples = [sample["text"] for sample in dataset if sample["text"].strip()]
 
-# Inference loop
 total_latency, total_throughput = 0, 0
 for i, prompt in enumerate(samples):
     inputs = tokenizer(prompt, return_tensors="pt").to(DEVICE)
@@ -76,7 +73,6 @@ for i, prompt in enumerate(samples):
             "throughput": throughput,
         })
 
-# Compute perplexity
 encodings = tokenizer(" ".join(samples), return_tensors="pt").to(DEVICE)
 labels = encodings["input_ids"]
 with torch.no_grad():
