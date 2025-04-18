@@ -13,6 +13,7 @@ MAX_TEST_SAMPLES = 100
 
 wandb.init(
     project=WANDB_PROJECT,
+    entity="ns3888-hpml",
     name="mistral-7b-pretrained-eval",
     config={
         "eval_split": f"test[:{MAX_TEST_SAMPLES}]",
