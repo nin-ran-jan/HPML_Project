@@ -73,6 +73,7 @@ for i, prompt in enumerate(samples):
             "throughput": throughput,
         })
 
+# Compute perplexity
 encodings = tokenizer(" ".join(samples), return_tensors="pt").to(DEVICE)
 labels = encodings["input_ids"]
 with torch.no_grad():

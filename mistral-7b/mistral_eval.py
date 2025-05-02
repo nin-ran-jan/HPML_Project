@@ -15,6 +15,7 @@ MAX_TEST_SAMPLES = 100
 
 wandb.init(
     project=WANDB_PROJECT,
+    entity="ns3888-hpml",
     name="mistral-7b-eval-wikitext-subset",
     config={
         "eval_split": f"test[:{MAX_TEST_SAMPLES}]",
@@ -44,7 +45,7 @@ for i, prompt in enumerate(samples):
             **inputs,
             max_new_tokens=MAX_NEW_TOKENS,
             do_sample=False,
-            use_cache=True
+            use_cache=False
         )
     end = time.time()
 

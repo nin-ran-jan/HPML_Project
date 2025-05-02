@@ -1,76 +1,72 @@
-import torch
-import time
-import wandb
-
+import math, time, torch, wandb
 from datasets import load_dataset
 from transformers import AutoTokenizer, AutoModelForCausalLM
+from peft import PeftModel
 
 WANDB_PROJECT = "final_project"
-MODEL_DIR = "llama2-7b-baseline-wikitext"
+
+BASE_MODEL = "meta-llama/Llama-2-7b-hf"          
+ADAPTER_DIR = "./llama2-7b-baseline-wikitext"     
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-MAX_NEW_TOKENS = 50
-MAX_TEST_SAMPLES = 100
+
+MAX_NEW_TOKENS    = 50
+MAX_TEST_SAMPLES  = 100
 
 wandb.init(
     project=WANDB_PROJECT,
-    name="llama2-7b-eval-wikitext-subset",
-    config={
-        "eval_split": f"test[:{MAX_TEST_SAMPLES}]",
-        "eval_max_new_tokens": MAX_NEW_TOKENS,
-        "device": DEVICE
-    }
+    entity="ns3888-hpml",
+    name="llama2-7b-ft-fp16-nokvcache",
+    config=dict(quantized=False, kv_cache=False, fine_tuned=True,
+                max_new_tokens=MAX_NEW_TOKENS, samples=MAX_TEST_SAMPLES,
+                device=DEVICE)
 )
 
-tokenizer = AutoTokenizer.from_pretrained(MODEL_DIR, use_fast=False)
-model = AutoModelForCausalLM.from_pretrained(MODEL_DIR, device_map="auto", torch_dtype=torch.float16)
+tokenizer = AutoTokenizer.from_pretrained(ADAPTER_DIR, use_fast=False)
+
+base = AutoModelForCausalLM.from_pretrained(
+           BASE_MODEL,
+           device_map="auto",
+           torch_dtype=torch.float16)
+
+base.config.use_cache = False
+
+model = PeftModel.from_pretrained(base, ADAPTER_DIR)
 model.eval()
 
-dataset = load_dataset("wikitext", "wikitext-2-raw-v1", split="test")
-dataset = dataset.select(range(MAX_TEST_SAMPLES))
-samples = [sample["text"] for sample in dataset if sample["text"].strip()]
+ds      = load_dataset("wikitext", "wikitext-2-raw-v1", split="test")
+samples = [s["text"] for s in ds.select(range(MAX_TEST_SAMPLES))
+           if s["text"].strip()]
 
-total_latency, total_throughput = 0, 0
-for i, prompt in enumerate(samples):
-    inputs = tokenizer(prompt, return_tensors="pt").to(DEVICE)
-
-    start = time.time()
+lat_sum = thr_sum = 0.0
+for i, text in enumerate(samples):
+    inp = tokenizer(text, return_tensors="pt").to(DEVICE)
+    t0  = time.time()
     with torch.no_grad():
-        outputs = model.generate(
-            **inputs,
-            max_new_tokens=MAX_NEW_TOKENS,
-            do_sample=False,
-            use_cache=False
-        )
-    end = time.time()
-
-    gen_tokens = outputs.shape[-1] - inputs["input_ids"].shape[-1]
-    elapsed = end - start
-    latency = elapsed / gen_tokens
-    throughput = gen_tokens / elapsed
-
-    total_latency += latency
-    total_throughput += throughput
+        outs = model.generate(**inp,
+                              max_new_tokens=MAX_NEW_TOKENS,
+                              do_sample=False,
+                              use_cache=False)      
+    dt   = time.time() - t0
+    gen  = outs.shape[-1] - inp["input_ids"].shape[-1]
+    lat  = dt / gen
+    thr  = gen / dt
+    lat_sum += lat;  thr_sum += thr
 
     if i < 10:
-        wandb.log({
-            "sample_id": i,
-            "prompt": prompt[:200] + "...",
-            "generation": tokenizer.decode(outputs[0], skip_special_tokens=True),
-            "latency_per_token": latency,
-            "throughput": throughput,
-        })
+        wandb.log(dict(sample=i, latency_per_token=lat,
+                       throughput=thr,
+                       gen_preview=tokenizer.decode(outs[0],
+                                                    skip_special_tokens=True)))
 
-encodings = tokenizer(" ".join(samples), return_tensors="pt").to(DEVICE)
-labels = encodings["input_ids"]
+torch.cuda.empty_cache()
+
+enc = tokenizer("\n\n".join(samples), return_tensors="pt").to(DEVICE)
 with torch.no_grad():
-    loss = model(**encodings, labels=labels).loss
-    perplexity = torch.exp(loss).item()
+    loss = model(**enc, labels=enc["input_ids"]).loss
+ppl  = math.exp(loss.item())
 
-wandb.log({
-    "avg_latency_per_token": total_latency / len(samples),
-    "avg_throughput": total_throughput / len(samples),
-    "test_perplexity": perplexity
-})
-print(f"[Eval Done] Perplexity: {perplexity:.2f} | Samples: {len(samples)}")
-
+wandb.log(dict(avg_latency_per_token = lat_sum/len(samples),
+               avg_throughput       = thr_sum/len(samples),
+               test_perplexity      = ppl))
+print(f"[Eval done] LoRA + FP16, KV‑cache OFF  |  Perplexity {ppl:.2f}")
 wandb.finish()
