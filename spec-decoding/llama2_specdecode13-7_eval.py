@@ -1,6 +1,7 @@
 import os, time, math, argparse, torch, wandb, pynvml
 from datasets import load_dataset
 from transformers import AutoTokenizer, AutoModelForCausalLM
+from tqdm import tqdm
 
 TARGET_ID = "meta-llama/Llama-2-13b-hf"
 DRAFT_ID = "meta-llama/Llama-2-7b-hf"
@@ -55,12 +56,14 @@ def main():
         DRAFT_ID, torch_dtype=torch.float16, device_map="auto"
     ).eval()
 
+    print("Loading Dataset...")
     ds = load_dataset(DATASET, CONF_NAME, split="test")
     texts = [ex["text"] for ex in ds.select(range(NUM_SAMPLES)) if ex["text"].strip()]
 
     full_lat = full_thr = full_accept = full_rb = 0.0
 
-    for i, txt in enumerate(texts):
+    print("Starting evaluation...")
+    for i, txt in tqdm(enumerate(texts)):
         prompt_ids = tok(
             txt, truncation=True, max_length=MAX_PROMPT, return_tensors="pt"
         ).to(DEVICE)
@@ -73,9 +76,8 @@ def main():
             out = target.generate(
                 **prompt_ids,
                 max_new_tokens=GEN_TOKENS,
-                do_sample=False,
-                draft_model=draft,
-                num_draft_tokens=NUM_DRAFT,
+                do_sample=True,
+                assistant_model=draft,
                 return_dict_in_generate=True,
                 output_scores=False,
             )
