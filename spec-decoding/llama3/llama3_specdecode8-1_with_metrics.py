@@ -1,8 +1,8 @@
 from transformers import AutoModelForCausalLM, AutoTokenizer, GenerationConfig
 from llama3_draft_with_metrics import InstrumentedDraft
 
-main = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-3.1-8B")
-draft = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-3.2-1B")
+main = AutoModelForCausalLM.from_pretrained("meta-llama/Meta-Llama-3-8B")
+draft = AutoModelForCausalLM.from_pretrained("meta-llama/Meta-Llama-3-1B")
 
 gen_cfg = GenerationConfig.from_model_config(main.config)
 gen_cfg.num_assistant_tokens = 8
@@ -15,7 +15,7 @@ draft_gen = InstrumentedDraft(
 )
 
 prompt = "Research shows that speculative decoding"
-tok = AutoTokenizer.from_pretrained("meta-llama/Llama-3.1-8B")
+tok = AutoTokenizer.from_pretrained("meta-llama/Meta-Llama-3-8B")
 inputs = tok(prompt, return_tensors="pt").to(main.device)
 
 out = main.generate(**inputs,
