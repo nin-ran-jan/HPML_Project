@@ -8,3 +8,5 @@ wandb/
 **/*.model
 **/*.tar
 **/*.qdstrm
+
+**/__pycache__/
