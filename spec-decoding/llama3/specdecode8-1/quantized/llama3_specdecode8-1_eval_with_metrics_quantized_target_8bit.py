@@ -4,6 +4,7 @@ from transformers import (
     AutoTokenizer,
     AutoModelForCausalLM,
     GenerationConfig,
+    BitsAndBytesConfig,
 )
 from transformers.generation.candidate_generator import AssistedCandidateGenerator
 from types import MethodType
@@ -33,9 +34,9 @@ CONF_NAME = "wikitext-2-raw-v1"
 # maybe vary this
 MAX_PROMPT = 128
 GEN_TOKENS = 64
-NUM_SAMPLES = 100
+NUM_SAMPLES = -1
 # maybe vary this
-NUM_ASSISTANT_TOK = 8
+NUM_ASSISTANT_TOK = TODO
 
 class InstrumentedDraft(AssistedCandidateGenerator):
     def __init__(self, *a, **kw):
@@ -73,9 +74,16 @@ def main():
         ),
     )
 
-    print("Loading main model …")
+    print("Loading quantized main model …")
+    bnb_main_config = BitsAndBytesConfig(
+        load_in_8bit=True,
+    )
+
     main_model = AutoModelForCausalLM.from_pretrained(
-        TARGET_ID, torch_dtype=torch.float16, device_map="auto").eval()
+        TARGET_ID,
+        device_map="auto",
+        quantization_config=bnb_main_config
+    ).eval()
 
     print("Loading draft model …")
     draft_model = AutoModelForCausalLM.from_pretrained(
@@ -92,7 +100,13 @@ def main():
 
     print("Loading dataset …")
     ds = load_dataset(DATASET, CONF_NAME, split="test")
-    texts = [ex["text"] for ex in ds.select(range(NUM_SAMPLES)) if ex["text"].strip()]
+    # sample a subset of the dataset with tokenized length >= MAX_PROMPT
+    ds = ds.filter(lambda ex: len(tokenizer(ex["text"]).input_ids) >= MAX_PROMPT)
+
+    if NUM_SAMPLES > 0:
+        texts = [ex["text"] for ex in ds.select(range(NUM_SAMPLES)) if ex["text"].strip()]
+    else:
+        texts = [ex["text"] for ex in ds if ex["text"].strip()]
 
     total_tok, total_time = 0, 0
     total_accept, total_reject, total_rollback = 0, 0, 0
