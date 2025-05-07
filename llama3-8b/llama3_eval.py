@@ -2,7 +2,7 @@ import os, time, math, torch, pynvml
 from datasets import load_dataset
 from transformers import pipeline, AutoTokenizer
 from tqdm import tqdm
-# import wandb  # Uncomment if enabling wandb
+import wandb
 
 TARGET_ID = "meta-llama/Llama-3.1-8B"
 DATASET = "wikitext"
@@ -11,7 +11,6 @@ MAX_PROMPT = 128
 GEN_TOKENS = 64
 NUM_SAMPLES = 100
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-
 
 def gpu_stats():
     pynvml.nvmlInit()
@@ -22,17 +21,18 @@ def gpu_stats():
 
 
 def main():
-    # wandb.init(
-    #     project="final_project",
-    #     name="llama3_8b_plain_inference",
-    #     config=dict(
-    #         target=TARGET_ID,
-    #         dataset=DATASET,
-    #         gen_tokens=GEN_TOKENS,
-    #         samples=NUM_SAMPLES,
-    #         prompt_len=MAX_PROMPT,
-    #     ),
-    # )
+    wandb.init(
+        project="final_project",
+        entity="ns3888-hpml",
+        name="llama3_8b_plain_inference",
+        config=dict(
+            target=TARGET_ID,
+            dataset=DATASET,
+            gen_tokens=GEN_TOKENS,
+            samples=NUM_SAMPLES,
+            prompt_len=MAX_PROMPT,
+        ),
+    )
 
     print("Loading Dataset...")
     ds = load_dataset(DATASET, CONF_NAME, split="test")
@@ -80,16 +80,15 @@ def main():
         full_lat += lat
         full_thr += thr
 
-        # if i < 10:
-        #     wandb.log(
-        #         dict(
-        #             sample=i,
-        #             latency_per_token=lat,
-        #             throughput=thr,
-        #             gpu_util=util1,
-        #             gpu_mem_GB=mem1,
-        #         )
-        #     )
+        wandb.log(
+            dict(
+                sample=i,
+                latency_per_token=lat,
+                throughput=thr,
+                gpu_util=util1,
+                gpu_mem_GB=mem1,
+            )
+        )
 
     avg_lat = full_lat / len(texts)
     avg_thr = full_thr / len(texts)
