@@ -23,7 +23,6 @@ def gpu_stats():
 
 
 def main():
-    # wandb.init(...)
 
     print("Loading Dataset...")
     ds = load_dataset(DATASET, CONF_NAME, split="test")
@@ -69,7 +68,6 @@ def main():
         full_lat += lat * batch_size
         full_thr += thr * batch_size
 
-        # wandb logging can go here per batch if desired
 
     n = len(prompts)
     print(
@@ -77,9 +75,6 @@ def main():
         f"Throughput  : {full_thr / n:.2f} tok/s\n"
         f"Latency/tok : {full_lat / n:.4f} s\n"
     )
-
-    # wandb.log({...})
-    # wandb.finish()
 
 
 if __name__ == "__main__":
