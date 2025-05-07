@@ -10,3 +10,5 @@ wandb/
 **/*.qdstrm
 **/__pycache__/
 **/*.pyc
+**/*.nsys-rep
+**/*.sqlite
