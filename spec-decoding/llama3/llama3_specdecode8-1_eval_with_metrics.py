@@ -30,9 +30,11 @@ TARGET_ID = "meta-llama/Llama-3.1-8B"
 DRAFT_ID = "meta-llama/Llama-3.2-1B"
 DATASET = "wikitext"
 CONF_NAME = "wikitext-2-raw-v1"
+# maybe vary this
 MAX_PROMPT = 128
 GEN_TOKENS = 64
 NUM_SAMPLES = 100
+# maybe vary this
 NUM_ASSISTANT_TOK = 8
 
 class InstrumentedDraft(AssistedCandidateGenerator):
@@ -92,7 +94,7 @@ def main():
     ds = load_dataset(DATASET, CONF_NAME, split="test")
     texts = [ex["text"] for ex in ds.select(range(NUM_SAMPLES)) if ex["text"].strip()]
 
-    total_tok, total_time, total_ppl = 0, 0, 0
+    total_tok, total_time = 0, 0
     total_accept, total_reject, total_rollback = 0, 0, 0
 
     print("Running evaluation …")
@@ -126,19 +128,19 @@ def main():
         n = cont_ids.numel()
         if n == 0: continue
 
-        full_input = torch.cat([inputs.input_ids[0], cont_ids], dim=0).unsqueeze(0).to(DEVICE)
+        # full_input = torch.cat([inputs.input_ids[0], cont_ids], dim=0).unsqueeze(0).to(DEVICE)
 
-        labels = full_input.clone()
-        labels[0, :inputs.input_ids.shape[1]] = -100
+        # labels = full_input.clone()
+        # labels[0, :inputs.input_ids.shape[1]] = -100
 
-        with torch.no_grad():
-            loss = main_model(full_input, labels=labels).loss
-        ppl = math.exp(loss.item())
+        # with torch.no_grad():
+        #     loss = main_model(full_input, labels=labels).loss
+        # ppl = math.exp(loss.item())
 
 
         total_tok += n
         total_time += dt
-        total_ppl += ppl
+        # total_ppl += ppl
         total_accept += draft_gen.accepted
         total_reject += draft_gen.rejected
         total_rollback += draft_gen.rollbacks
@@ -148,7 +150,7 @@ def main():
             "tokens_generated": n,
             "latency_per_token": dt / n,
             "throughput": n / dt,
-            "perplexity": ppl,
+            # "perplexity": ppl,
             "accept_rate": draft_gen.accepted / (draft_gen.accepted + draft_gen.rejected + 1e-9),
             "rollbacks": draft_gen.rollbacks,
         })
@@ -156,14 +158,14 @@ def main():
     print("\n=== Final Averages ===")
     print(f"Latency/token (s): {total_time / total_tok:.4f}")
     print(f"Throughput (tok/s): {total_tok / total_time:.2f}")
-    print(f"Perplexity: {total_ppl / NUM_SAMPLES:.2f}")
+    # print(f"Perplexity: {total_ppl / NUM_SAMPLES:.2f}")
     print(f"Accept Rate: {total_accept / (total_accept + total_reject + 1e-9):.2f}")
     print(f"Total Rollbacks: {total_rollback}")
 
     wandb.log({
         "avg_latency_per_token": total_time / total_tok,
         "avg_throughput": total_tok / total_time,
-        "avg_perplexity": total_ppl / NUM_SAMPLES,
+        # "avg_perplexity": total_ppl / NUM_SAMPLES,
         "overall_accept_rate": total_accept / (total_accept + total_reject + 1e-9),
         "total_rollbacks": total_rollback
     })
