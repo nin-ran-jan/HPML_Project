@@ -2,7 +2,8 @@ import time, argparse, wandb, torch, copy
 from typing import Dict, Optional, Tuple
 from tqdm import tqdm
 from datasets import load_dataset
-from transformers import AutoTokenizer, AutoModelForCausalLM
+from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
+from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
 from transformers.generation.candidate_generator import AssistedCandidateGenerator
 from transformers.generation.candidate_generator import CandidateGenerator
 
@@ -11,12 +12,19 @@ arg = argparse.ArgumentParser()
 arg.add_argument("model",              type=str)
 arg.add_argument("--aux-model",        type=str, required=True)
 arg.add_argument("--dtype",            type=str, default="bf16")
+arg.add_argument("--target-quant",        type=str, choices=["none","8bit","4bit"], default="none")
+arg.add_argument("--draft-quant",         type=str, choices=["none","8bit","4bit"], default="none")
+arg.add_argument("--target-quant",        type=str, choices=["none","8bit","4bit"], default="none")
+arg.add_argument("--draft-quant",         type=str, choices=["none","8bit","4bit"], default="none")
+arg.add_argument("--num-samples",      type=int, default=100)
 arg.add_argument("--num-samples",      type=int, default=500)
 arg.add_argument("--max-prompt",       type=int, default=128)
 arg.add_argument("--gen-toks",         type=int, default=128)
 arg.add_argument("--assist-toks",      type=int, default=8)
 arg.add_argument("--compile",          action="store_true",
                  help="torch.compile() the target")
+arg.add_argument("--do-sample",          action="store_true",
+                 help="sample for the model instead of greedy")
 arg.add_argument("--do-sample",          action="store_true",
                  help="sample for the model instead of greedy")
 
@@ -35,18 +43,100 @@ wandb.init(project=args.wandb_project,
            name   =args.wandb_run,
            config =vars(args))
 
+def make_bnb(quant):
+    if quant == "8bit":
+        return BitsAndBytesConfig(load_in_8bit=True)
+    if quant == "4bit":
+        return BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_quant_type="nf4",
+            bnb_4bit_compute_dtype=torch.bfloat16,
+            bnb_4bit_use_double_quant=True,
+        )
+    return None
+
+print("Loading target …")
+t_kwargs = {"device_map":"auto"}
+bnb_t = make_bnb(args.target_quant)
+if bnb_t:
+    t_kwargs["quantization_config"] = bnb_t
+    t_kwargs["torch_dtype"] = torch.float16  
+else:
+    t_kwargs["torch_dtype"] = dtype
+target = AutoModelForCausalLM.from_pretrained(args.model, **t_kwargs).eval()
+
+print("Loading draft  …")
+d_kwargs = {"device_map":{"":0}}   
+bnb_d = make_bnb(args.draft_quant)
+if bnb_d:
+    d_kwargs["quantization_config"] = bnb_d
+    d_kwargs["torch_dtype"] = torch.float16
+else:
+    d_kwargs["torch_dtype"] = dtype
+draft = AutoModelForCausalLM.from_pretrained(args.aux_model, **d_kwargs).eval()
+
+if args.compile and args.target_quant == "none":
+    target = torch.compile(target, mode="reduce-overhead")
+if args.compile and args.draft_quant == "none":
+    draft  = torch.compile(draft , mode="reduce-overhead")
+
+def make_bnb(quant):
+    if quant == "8bit":
+        return BitsAndBytesConfig(load_in_8bit=True)
+    if quant == "4bit":
+        return BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_quant_type="nf4",
+            bnb_4bit_compute_dtype=torch.bfloat16,
+            bnb_4bit_use_double_quant=True,
+        )
+    return None
+
+print("Loading target …")
+t_kwargs = {"device_map":"auto"}
+bnb_t = make_bnb(args.target_quant)
+if bnb_t:
+    t_kwargs["quantization_config"] = bnb_t
+    t_kwargs["torch_dtype"] = torch.float16  
+else:
+    t_kwargs["torch_dtype"] = dtype
+target = AutoModelForCausalLM.from_pretrained(args.model, **t_kwargs).eval()
+
+print("Loading draft  …")
+d_kwargs = {"device_map":{"":0}}   
+bnb_d = make_bnb(args.draft_quant)
+if bnb_d:
+    d_kwargs["quantization_config"] = bnb_d
+    d_kwargs["torch_dtype"] = torch.float16
+else:
+    d_kwargs["torch_dtype"] = dtype
+draft = AutoModelForCausalLM.from_pretrained(args.aux_model, **d_kwargs).eval()
+
+if args.compile and args.target_quant == "none":
+    target = torch.compile(target, mode="reduce-overhead")
+if args.compile and args.draft_quant == "none":
+    draft  = torch.compile(draft , mode="reduce-overhead")
+
 tok = AutoTokenizer.from_pretrained(args.model, use_fast=False)
 tok.pad_token = tok.eos_token
 
-print("Loading target …")
-target = AutoModelForCausalLM.from_pretrained(
-            args.model, torch_dtype=dtype, device_map="auto").eval()
-if args.compile:
-    target = torch.compile(target, mode="reduce-overhead")
+# print("Loading target …")
+# target = AutoModelForCausalLM.from_pretrained(
+#             args.model, torch_dtype=dtype, device_map="auto").eval()
+# if args.compile:
+#     target = torch.compile(target, mode="reduce-overhead")
+# print("Loading target …")
+# target = AutoModelForCausalLM.from_pretrained(
+#             args.model, torch_dtype=dtype, device_map="auto").eval()
+# if args.compile:
+#     target = torch.compile(target, mode="reduce-overhead")
 
-print("Loading draft  …")
-draft  = AutoModelForCausalLM.from_pretrained(
-            args.aux_model, torch_dtype=dtype, device_map="auto").eval()
+# print("Loading draft  …")
+# draft  = AutoModelForCausalLM.from_pretrained(
+#             args.aux_model, torch_dtype=dtype, device_map="auto").eval()
+# print("Loading draft  …")
+# draft  = AutoModelForCausalLM.from_pretrained(
+#             args.aux_model, torch_dtype=dtype, device_map="auto").eval()
 
 class MeteredDraft(AssistedCandidateGenerator):
     def __init__(self,*a,**k):
@@ -147,25 +237,28 @@ def run_loop(spec_decode: bool):
 
 assist   = run_loop(True)
 # baseline = run_loop(False)
+# baseline = run_loop(False)
+# baseline = run_loop(False)
 
 baseline = {
     "lat": 0.06506,
     "thr": 15.37051,
 }
 
-spd = baseline["lat"]/assist["lat"]
+
+# spd = baseline["lat"]/assist["lat"]
 print("\n=== RESULTS ===")
-print(f"Baseline  : {baseline['lat']:.4f} s/tok | {baseline['thr']:.2f} tok/s")
+# print(f"Baseline  : {baseline['lat']:.4f} s/tok | {baseline['thr']:.2f} tok/s")
 print(f"Assisted  : {assist['lat']:.4f} s/tok | {assist['thr']:.2f} tok/s")
-print(f"Speed-up  : {spd:.2f}×")
+# print(f"Speed-up  : {spd:.2f}×")
 print(f"Accept-rate: {assist['accrate']:.2f} (roll-backs {assist['rb']})")
 
 wandb.log({
-    "baseline_latency_tok": baseline["lat"],
-    "baseline_thr":         baseline["thr"],
+    # "baseline_latency_tok": baseline["lat"],
+    # "baseline_thr":         baseline["thr"],
     "assisted_latency_tok": assist["lat"],
     "assisted_thr":         assist["thr"],
-    "speedup_ratio":        spd,
+    # "speedup_ratio":        spd,
     "accept_rate":          assist["accrate"],
     "total_rollbacks":      assist["rb"],
 })
