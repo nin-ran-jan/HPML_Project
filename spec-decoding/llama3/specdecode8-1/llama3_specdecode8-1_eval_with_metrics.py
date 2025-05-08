@@ -10,21 +10,6 @@ from types import MethodType
 from tqdm import tqdm
 import copy
 
-def _patched_prepare_generation_args(self, input_ids, min_new, max_new):
-    num_assistant_tokens = int(self.generation_config.num_assistant_tokens)
-    generation_config = copy.deepcopy(self.generation_config)
-    generation_config.max_new_tokens = num_assistant_tokens
-    generation_config.min_new_tokens = num_assistant_tokens
-    # print(num_assistant_tokens)
-    return {
-        self.input_ids_key: input_ids,
-        "generation_config": generation_config,
-        "logits_processor": self.logits_processor,
-        "min_new_tokens": num_assistant_tokens,
-        "max_new_tokens": num_assistant_tokens,
-    }
-
-AssistedCandidateGenerator._prepare_generation_args = _patched_prepare_generation_args
 
 warnings.filterwarnings("ignore", message="The attention mask.*", module="transformers")
 warnings.filterwarnings("ignore", message="Setting pad_token_id.*",  module="transformers")
@@ -41,15 +26,19 @@ MAX_PROMPT = 128
 GEN_TOKENS = 64
 NUM_SAMPLES = 100
 # maybe vary this
-NUM_ASSISTANT_TOK = 40
+NUM_ASSISTANT_TOK = 8
 
 class InstrumentedDraft(AssistedCandidateGenerator):
     def __init__(self, *a, **kw):
         super().__init__(*a, **kw)
-        # print("HERE", self.num_assistant_tokens)
         self.generation_config.num_assistant_tokens = int(self.num_assistant_tokens)
-        self.generation_config.max_new_tokens = int(self.num_assistant_tokens)
+        self.generation_config.max_length = MAX_PROMPT + GEN_TOKENS + NUM_ASSISTANT_TOK + 1
         self.accepted = self.rejected = self.rollbacks = 0
+        self.generation_config.do_sample = True
+        self.generation_config.num_assistant_tokens_schedule = "constant"
+        # For decoder only models the max length includes prompt + generated tokens
+        # self.generation_config.max_length =  MAX_PROMPT + GEN_TOKENS + NUM_ASSISTANT_TOK + 1
+        # self.generation_config.do_sample = True
 
     def get_candidates(self, input_ids):
         start, end = torch.cuda.Event(True), torch.cuda.Event(True)
@@ -96,8 +85,8 @@ def main():
     tokenizer.pad_token = tokenizer.eos_token
 
     gen_cfg = GenerationConfig.from_model_config(main_model.config)
-    gen_cfg.max_new_tokens = GEN_TOKENS
-    gen_cfg.num_assistant_tokens = NUM_ASSISTANT_TOK
+    # gen_cfg.max_new_tokens = GEN_TOKENS
+    # gen_cfg.num_assistant_tokens = NUM_ASSISTANT_TOK
     gen_cfg.do_sample = True
     gen_cfg.pad_token_id = tokenizer.pad_token_id
 
@@ -148,15 +137,6 @@ def main():
         cont_ids = out[0][inputs.input_ids.shape[1]:]
         n = cont_ids.numel()
         if n == 0: continue
-
-        # full_input = torch.cat([inputs.input_ids[0], cont_ids], dim=0).unsqueeze(0).to(DEVICE)
-
-        # labels = full_input.clone()
-        # labels[0, :inputs.input_ids.shape[1]] = -100
-
-        # with torch.no_grad():
-        #     loss = main_model(full_input, labels=labels).loss
-        # ppl = math.exp(loss.item())
 
         total_tok += n
         total_time += dt
