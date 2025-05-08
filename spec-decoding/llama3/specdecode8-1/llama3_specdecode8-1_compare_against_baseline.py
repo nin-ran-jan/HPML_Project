@@ -1,8 +1,11 @@
 import time, argparse, wandb, torch, copy
+from typing import Dict, Optional, Tuple
 from tqdm import tqdm
 from datasets import load_dataset
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from transformers.generation.candidate_generator import AssistedCandidateGenerator
+from transformers.generation.candidate_generator import CandidateGenerator
+
 
 arg = argparse.ArgumentParser()
 arg.add_argument("model",              type=str)
@@ -54,12 +57,28 @@ class MeteredDraft(AssistedCandidateGenerator):
         self.generation_config.num_assistant_tokens_schedule = "constant"
         self.generation_config.do_sample = args.do_sample
         self.accepted = self.rejected = self.rollbacks = 0
+
     def update_candidate_strategy(self, ids, scores, nmatch):
         super().update_candidate_strategy(ids, scores, nmatch)
         self.accepted += nmatch
         bad = scores.shape[1]-1-nmatch
         self.rejected += bad
         if bad: self.rollbacks += 1
+
+    # Monkey patch, fix more elegentantly later
+    def _calculate_new_tokens(self, input_ids: torch.LongTensor) -> Tuple[int, int]:
+        """Calculate the minimum and maximum number of new tokens to generate."""
+        self.num_assistant_tokens = args.assist_toks
+        return super()._calculate_new_tokens(input_ids)
+
+    # Monkey patch, fix more elegentantly later
+    def _generate_candidates(self, generation_args: Dict) -> Tuple[torch.LongTensor, Optional[torch.FloatTensor]]:
+        """ 
+        Patching to prevent threshold from early stopping draft generation to match orig paper 
+        Also setting threshold each time to prevent auto scaling of threshold
+        """
+        generation_args["assistant_confidence_threshold"] = 1e-4
+        return super()._generate_candidates(generation_args)
 
 print("Loading WikiText-2 …")
 ds = load_dataset("wikitext", "wikitext-2-raw-v1", split="test")
