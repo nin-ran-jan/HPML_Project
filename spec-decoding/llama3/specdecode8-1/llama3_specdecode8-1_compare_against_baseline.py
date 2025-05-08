@@ -147,6 +147,8 @@ for raw in texts:
 base_cfg = copy.deepcopy(target.generation_config)
 base_cfg.do_sample = args.do_sample
 base_cfg.num_assistant_tokens = args.assist_toks
+base_cfg.pad_token_id = tok.pad_token_id # possible fix for warning
+
 
 #warm up
 dummy = {k:v.to(device) for k,v in prompts[0].items()}
@@ -218,4 +220,5 @@ wandb.log({
     "accept_rate":          assist["accrate"],
     "total_rollbacks":      assist["rb"],
 })
+
 wandb.finish()
