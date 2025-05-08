@@ -8,14 +8,20 @@ from transformers import (
 from transformers.generation.candidate_generator import AssistedCandidateGenerator
 from types import MethodType
 from tqdm import tqdm
+import copy
 
 def _patched_prepare_generation_args(self, input_ids, min_new, max_new):
+    num_assistant_tokens = int(self.generation_config.num_assistant_tokens)
+    generation_config = copy.deepcopy(self.generation_config)
+    generation_config.max_new_tokens = num_assistant_tokens
+    generation_config.min_new_tokens = num_assistant_tokens
+    # print(num_assistant_tokens)
     return {
         self.input_ids_key: input_ids,
-        "generation_config": self.generation_config,
+        "generation_config": generation_config,
         "logits_processor": self.logits_processor,
-        "min_new_tokens": min_new if min_new > 0 else None,
-        "max_new_tokens": max_new if max_new > 0 else None,
+        "min_new_tokens": num_assistant_tokens,
+        "max_new_tokens": num_assistant_tokens,
     }
 
 AssistedCandidateGenerator._prepare_generation_args = _patched_prepare_generation_args
@@ -33,13 +39,15 @@ CONF_NAME = "wikitext-2-raw-v1"
 # maybe vary this
 MAX_PROMPT = 128
 GEN_TOKENS = 64
-NUM_SAMPLES = -1
+NUM_SAMPLES = 100
 # maybe vary this
-NUM_ASSISTANT_TOK = 4
+NUM_ASSISTANT_TOK = 40
 
 class InstrumentedDraft(AssistedCandidateGenerator):
     def __init__(self, *a, **kw):
         super().__init__(*a, **kw)
+        # print("HERE", self.num_assistant_tokens)
+        self.generation_config.num_assistant_tokens = int(self.num_assistant_tokens)
         self.generation_config.max_new_tokens = int(self.num_assistant_tokens)
         self.accepted = self.rejected = self.rollbacks = 0
 
@@ -48,6 +56,8 @@ class InstrumentedDraft(AssistedCandidateGenerator):
         start.record()
         ids, logits = super().get_candidates(input_ids)
         end.record(); torch.cuda.synchronize()
+        generated_count = ids.shape[1] - input_ids.shape[1]
+        # print(f">>> Draft generated {generated_count} tokens (expected: {self.num_assistant_tokens})")
         return ids, logits
 
     def update_candidate_strategy(self, input_ids, scores, num_matches):
@@ -62,7 +72,7 @@ def main():
     wandb.init(
         project="final_project",
         entity="ns3888-hpml",
-        name="llama3_specdecode8-1_eval_full_data_tok4",
+        name="llama3_specdecode8-1_eval_full_data_tok40",
         config=dict(
             target_model=TARGET_ID,
             draft_model=DRAFT_ID,
@@ -80,6 +90,7 @@ def main():
     print("Loading draft model …")
     draft_model = AutoModelForCausalLM.from_pretrained(
         DRAFT_ID, torch_dtype=torch.float16, device_map="auto").eval()
+    draft_model.generation_config.num_assistant_tokens = NUM_ASSISTANT_TOK
 
     tokenizer = AutoTokenizer.from_pretrained(TARGET_ID, use_fast=False)
     tokenizer.pad_token = tokenizer.eos_token
@@ -124,11 +135,13 @@ def main():
         main_model._get_candidate_generator = MethodType(_return_mine, main_model)
 
         torch.cuda.synchronize(); t0 = time.time()
+        # print("GENCFG",gen_cfg)
         out = main_model.generate(
             input_ids=inputs["input_ids"],
             attention_mask=inputs["attention_mask"],
             assistant_model=draft_model, 
-            generation_config=gen_cfg
+            generation_config=gen_cfg, 
+            # use_model_defaults=False,
         )
         torch.cuda.synchronize(); dt = time.time() - t0
 
