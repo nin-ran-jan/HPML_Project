@@ -14,17 +14,12 @@ arg.add_argument("--aux-model",        type=str, required=True)
 arg.add_argument("--dtype",            type=str, default="bf16")
 arg.add_argument("--target-quant",        type=str, choices=["none","8bit","4bit"], default="none")
 arg.add_argument("--draft-quant",         type=str, choices=["none","8bit","4bit"], default="none")
-arg.add_argument("--target-quant",        type=str, choices=["none","8bit","4bit"], default="none")
-arg.add_argument("--draft-quant",         type=str, choices=["none","8bit","4bit"], default="none")
-arg.add_argument("--num-samples",      type=int, default=100)
 arg.add_argument("--num-samples",      type=int, default=500)
 arg.add_argument("--max-prompt",       type=int, default=128)
 arg.add_argument("--gen-toks",         type=int, default=128)
 arg.add_argument("--assist-toks",      type=int, default=8)
 arg.add_argument("--compile",          action="store_true",
                  help="torch.compile() the target")
-arg.add_argument("--do-sample",          action="store_true",
-                 help="sample for the model instead of greedy")
 arg.add_argument("--do-sample",          action="store_true",
                  help="sample for the model instead of greedy")
 
@@ -42,43 +37,6 @@ wandb.init(project=args.wandb_project,
            entity =args.wandb_entity,
            name   =args.wandb_run,
            config =vars(args))
-
-def make_bnb(quant):
-    if quant == "8bit":
-        return BitsAndBytesConfig(load_in_8bit=True)
-    if quant == "4bit":
-        return BitsAndBytesConfig(
-            load_in_4bit=True,
-            bnb_4bit_quant_type="nf4",
-            bnb_4bit_compute_dtype=torch.bfloat16,
-            bnb_4bit_use_double_quant=True,
-        )
-    return None
-
-print("Loading target …")
-t_kwargs = {"device_map":"auto"}
-bnb_t = make_bnb(args.target_quant)
-if bnb_t:
-    t_kwargs["quantization_config"] = bnb_t
-    t_kwargs["torch_dtype"] = torch.float16  
-else:
-    t_kwargs["torch_dtype"] = dtype
-target = AutoModelForCausalLM.from_pretrained(args.model, **t_kwargs).eval()
-
-print("Loading draft  …")
-d_kwargs = {"device_map":{"":0}}   
-bnb_d = make_bnb(args.draft_quant)
-if bnb_d:
-    d_kwargs["quantization_config"] = bnb_d
-    d_kwargs["torch_dtype"] = torch.float16
-else:
-    d_kwargs["torch_dtype"] = dtype
-draft = AutoModelForCausalLM.from_pretrained(args.aux_model, **d_kwargs).eval()
-
-if args.compile and args.target_quant == "none":
-    target = torch.compile(target, mode="reduce-overhead")
-if args.compile and args.draft_quant == "none":
-    draft  = torch.compile(draft , mode="reduce-overhead")
 
 def make_bnb(quant):
     if quant == "8bit":
@@ -167,7 +125,7 @@ class MeteredDraft(AssistedCandidateGenerator):
         Patching to prevent threshold from early stopping draft generation to match orig paper 
         Also setting threshold each time to prevent auto scaling of threshold
         """
-        generation_args["assistant_confidence_threshold"] = 1e-4
+        generation_args["assistant_confidence_threshold"] = 0.2
         return super()._generate_candidates(generation_args)
 
 print("Loading WikiText-2 …")
@@ -189,6 +147,8 @@ for raw in texts:
 base_cfg = copy.deepcopy(target.generation_config)
 base_cfg.do_sample = args.do_sample
 base_cfg.num_assistant_tokens = args.assist_toks
+base_cfg.pad_token_id = tok.pad_token_id # possible fix for warning
+
 
 #warm up
 dummy = {k:v.to(device) for k,v in prompts[0].items()}
@@ -237,8 +197,6 @@ def run_loop(spec_decode: bool):
 
 assist   = run_loop(True)
 # baseline = run_loop(False)
-# baseline = run_loop(False)
-# baseline = run_loop(False)
 
 baseline = {
     "lat": 0.06506,
@@ -262,4 +220,5 @@ wandb.log({
     "accept_rate":          assist["accrate"],
     "total_rollbacks":      assist["rb"],
 })
+
 wandb.finish()
