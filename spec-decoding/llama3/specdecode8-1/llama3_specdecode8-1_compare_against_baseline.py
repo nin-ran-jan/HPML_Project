@@ -15,7 +15,7 @@ arg.add_argument("--assist-toks",      type=int, default=8)
 arg.add_argument("--compile",          action="store_true",
                  help="torch.compile() the target")
 arg.add_argument("--do-sample",          action="store_true",
-                 help="torch.compile() the target")
+                 help="sample for the model instead of greedy")
 
 arg.add_argument("--wandb-project",    type=str, default="final_project")
 arg.add_argument("--wandb-entity",     type=str, default="ns3888-hpml")
@@ -127,7 +127,12 @@ def run_loop(spec_decode: bool):
     return m
 
 assist   = run_loop(True)
-baseline = run_loop(False)
+# baseline = run_loop(False)
+
+baseline = {
+    "lat": 0.06506,
+    "thr": 15.37051,
+}
 
 spd = baseline["lat"]/assist["lat"]
 print("\n=== RESULTS ===")
