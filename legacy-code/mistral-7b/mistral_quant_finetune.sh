@@ -1,0 +1,22 @@
+#!/bin/bash
+accelerate launch mistral_finetune.py \
+  --model_name_or_path mistralai/Mistral-7B-v0.1 \
+  --dataset_name wikitext \
+  --dataset_config_name wikitext-2-raw-v1 \
+  --do_train \
+  --gradient_checkpointing True \
+  --per_device_train_batch_size 1 \
+  --gradient_accumulation_steps 8 \
+  --block_size 512 \
+  --learning_rate 2e-5 \
+  --num_train_epochs 1 \
+  --max_steps 100 \
+  --max_train_samples 10000 \
+  --eval_steps 50 \
+  --max_eval_samples 1000 \
+  --save_total_limit 1 \
+  --output_dir ./mistral-baseline-wikitext-quant \
+  --overwrite_output_dir \
+  --logging_dir ./mistral-baseline-wikitext/logs \
+  --logging_steps 10 \
+  --report_to wandb

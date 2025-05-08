@@ -8,11 +8,13 @@ arg = argparse.ArgumentParser()
 arg.add_argument("model",              type=str)
 arg.add_argument("--aux-model",        type=str, required=True)
 arg.add_argument("--dtype",            type=str, default="bf16")
-arg.add_argument("--num-samples",      type=int, default=100)
+arg.add_argument("--num-samples",      type=int, default=500)
 arg.add_argument("--max-prompt",       type=int, default=128)
-arg.add_argument("--gen-toks",         type=int, default=64)
+arg.add_argument("--gen-toks",         type=int, default=128)
 arg.add_argument("--assist-toks",      type=int, default=8)
 arg.add_argument("--compile",          action="store_true",
+                 help="torch.compile() the target")
+arg.add_argument("--do-sample",          action="store_true",
                  help="torch.compile() the target")
 
 arg.add_argument("--wandb-project",    type=str, default="final_project")
@@ -50,7 +52,7 @@ class MeteredDraft(AssistedCandidateGenerator):
         self.generation_config.max_length = (
             args.max_prompt + args.gen_toks + args.assist_toks)
         self.generation_config.num_assistant_tokens_schedule = "constant"
-        self.generation_config.do_sample = True
+        self.generation_config.do_sample = args.do_sample
         self.accepted = self.rejected = self.rollbacks = 0
     def update_candidate_strategy(self, ids, scores, nmatch):
         super().update_candidate_strategy(ids, scores, nmatch)
@@ -76,7 +78,7 @@ for raw in texts:
     prompts.append({k:v.pin_memory() for k,v in t.items()})
 
 base_cfg = copy.deepcopy(target.generation_config)
-base_cfg.do_sample = True
+base_cfg.do_sample = args.do_sample
 base_cfg.num_assistant_tokens = args.assist_toks
 
 #warm up
