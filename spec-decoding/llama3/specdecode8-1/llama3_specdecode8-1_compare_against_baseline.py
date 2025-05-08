@@ -15,8 +15,8 @@ arg.add_argument("--assist-toks",      type=int, default=8)
 arg.add_argument("--compile",          action="store_true",
                  help="torch.compile() the target")
 
-arg.add_argument("--wandb-project",    type=str, default="spec-decode-bench")
-arg.add_argument("--wandb-entity",     type=str, default=None)
+arg.add_argument("--wandb-project",    type=str, default="final_project")
+arg.add_argument("--wandb-entity",     type=str, default="ns3888-hpml")
 arg.add_argument("--wandb-run",        type=str, default=None)
 args = arg.parse_args()
 
@@ -50,7 +50,7 @@ class MeteredDraft(AssistedCandidateGenerator):
         self.generation_config.max_length = (
             args.max_prompt + args.gen_toks + args.assist_toks)
         self.generation_config.num_assistant_tokens_schedule = "constant"
-        self.generation_config.do_sample = False
+        self.generation_config.do_sample = True
         self.accepted = self.rejected = self.rollbacks = 0
     def update_candidate_strategy(self, ids, scores, nmatch):
         super().update_candidate_strategy(ids, scores, nmatch)
@@ -76,14 +76,14 @@ for raw in texts:
     prompts.append({k:v.pin_memory() for k,v in t.items()})
 
 base_cfg = copy.deepcopy(target.generation_config)
-base_cfg.do_sample = False
+base_cfg.do_sample = True
 base_cfg.num_assistant_tokens = args.assist_toks
 
 #warm up
 dummy = {k:v.to(device) for k,v in prompts[0].items()}
 with torch.inference_mode():
     target.generate(**dummy, generation_config=base_cfg, max_new_tokens=2)
-    draft .generate(**dummy, generation_config=base_cfg, max_new_tokens=2)
+    draft.generate(**dummy, generation_config=base_cfg, max_new_tokens=2)
 
 def run_loop(spec_decode: bool):
     tot_tok=tot_time=acc=rej=rb=0
@@ -98,6 +98,7 @@ def run_loop(spec_decode: bool):
                                      generation_config=gen_cfg, model_kwargs={})
             target._get_candidate_generator = lambda *_ , **__: draft_gen
             assist_args["assistant_model"] = draft
+            assist_args["num_assistant_tokens"] = args.assist_toks
 
         torch.cuda.synchronize(); t0=time.time()
         with torch.inference_mode():
