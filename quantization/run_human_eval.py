@@ -38,16 +38,20 @@ def load_model(model_id, quant):
         raise ValueError("quant must be one of: '16', '8', or '4'")
 
 # Generate a single code completion from the model
-def generate_one_completion(model, tokenizer, prompt, max_tokens=512):
+def generate_one_completion(model, tokenizer, prompt, max_tokens=512, sampling=True):
     inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
-    outputs = model.generate(
-        **inputs,
-        max_new_tokens=max_tokens,
-        do_sample=False,
-        # temperature=0.7,
-        # top_p=0.95,
-        pad_token_id=tokenizer.eos_token_id
-    )
+    generate_args = {
+        "max_new_tokens": max_tokens,
+        "do_sample": sampling,
+        "pad_token_id": tokenizer.eos_token_id
+    }
+    if sampling:
+        generate_args.update({
+            "temperature": 0.7,
+            "top_p": 0.95
+        })
+        
+    outputs = model.generate(**inputs, **generate_args)
     generated = tokenizer.decode(outputs[0], skip_special_tokens=True)
     return generated[len(prompt):]  # Strip the prompt from the generated output
 
@@ -92,7 +96,7 @@ def main(args):
     samples = []
     for task_id, problem in tqdm(limited_problems):
         for _ in range(args.num_samples):
-            completion = generate_one_completion(model, tokenizer, problem["prompt"], args.max_tokens)
+            completion = generate_one_completion(model, tokenizer, problem["prompt"], args.max_tokens, sampling=args.sampling)
             samples.append({"task_id": task_id, "completion": completion})
 
     # Save the generated completions
@@ -129,6 +133,7 @@ if __name__ == "__main__":
     parser.add_argument("--wandb_project", type=str, default="final_project", help="WandB project name")
     parser.add_argument("--wandb_entity",  type=str, default="ns3888-hpml", help="WandB entity/team")
     parser.add_argument("--wandb_run",     type=str, default=None, help="Optional name for this run")
+    parser.add_argument("--sampling", action="store_true", help="Use sampling when generating completions")
 
     args = parser.parse_args()
     main(args)
