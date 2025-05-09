@@ -1,16 +1,15 @@
 #!/bin/bash
 
-python spec-decoding/llama3/specdecode8-1/llama3_specdecode8-1_compare_against_baseline.py \
+python spec-decoding/llama3_specdecode.py \
   meta-llama/Llama-3.1-8B \
-  --aux-model meta-llama/Llama-3.2-1B \
+  --aux-model meta-llama/Llama-3.2-3B \
   --dtype bf16 \
-  --target-quant none \
-  --draft-quant none \
-  --num-samples 20 \
-  --assist-toks 16 \
+  --target-quant 8bit \
+  --draft-quant 4bit \
+  --num-samples 500 \
+  --assist-toks 3 \
   --gen-toks 128 \
-  --compile \
-  --do-sample \
   --wandb-project final_project \
   --wandb-entity ns3888-hpml \
-  --wandb-run llama3-specdecode8-1_sampling_true_toks20_L4
+  --wandb-run temp \
+  --compile

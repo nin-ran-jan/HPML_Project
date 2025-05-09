@@ -1,4 +1,6 @@
 wandb/
+human-eval/
+
 **/*.json
 **/*.bin
 **/*.safetensors
@@ -12,3 +14,4 @@ wandb/
 **/*.pyc
 **/*.nsys-rep
 **/*.sqlite
+**/*.jsonl
