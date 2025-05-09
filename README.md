@@ -1,70 +1,47 @@
-
-# Storyline for Project and Motivation
-
-In the initial phases of the experiments, we were using 2 sets of models -- mistral 7B and llama2 7B for our evaluation. When we started experimenting with speculative decoding, we came to the conclusion that the draft versions of these models had to be quantized for our runtime. However, the results with quantized models as draft models were not ideal at the time, so we decided to switch to the Llama3 family of models. Here, we primarily use 8B, 3B, and 1B family of models, all which are compatible with our compute environment. 
-
-# Hardware used
-
-We use L4 GPUs with 24 GB of VRAM for all of our experiments. Each machine has an identical setup with a total of 16 vCPUs and 64 GB of memory (RAM). 
-
-# Observations from Results
-
-## Spec Decoding
-1. We observed that the speculative decoding for the 8B 1B model performs the best, with number of assistant tokens = 3, no sampling, and confidence threshold = 0.2. 
-2. We observed a trend with number of assistant tokens and speedup. There was an optimal value at 3 -> 1 was too small for generation so draft model was bottlenecking and high values were producing too many rejected tokens, resulting many more rollbacks causing a net negative effect. 
-3. Without sampling, the model was deterministic in selecting the outputs with the maximum logit value for prediction. Hence, these results were better than sampled results. 
-4. As we increased the base model size from 1B to 3B, we saw a performance dip. Even though the model has a better acceptance rate of tokens, the larger size of it inhibits a fast output of multiple assistant tokens and causes a net slowdown in speed. 
-5. With all combinations of quantization, the model shows a dip in performance. We can see that in all of the quantized settings the GPU utilization is lesser as compared to the other cases. We attribute this to our hardware that has specific optimizations for bf16, as compared to quantized nf4 and int8. 
-
-## Human eval
-
-1. TODO 
-
-
 # HPML_Project
 
-TODO: Benchmarking SoTA LLM performance improvements by introducing techniques like KV Caching, Speculative Decoding, and Quantization. This is a course project for the High Performance Machine Learning course offered by Prof. Kaoutar El Maghraoui at Columbia University.
-
+This repository presents our work in benchmarking state-of-the-art LLM performance improvements through techniques such as **Speculative Decoding**, **Quantization**, and **Generation Evaluation**. The project was developed as part of the High Performance Machine Learning course offered by Prof. Kaoutar El Maghraoui at Columbia University.
 
 ---
 
 ## Table of Contents
-- [Storyline and Project Motivation](#storyline-and-project-motivation)
-- [Hardware Used](#hardware-used)
+- [Project Motivation](#project-motivation)
+- [Hardware Setup](#hardware-setup)
 - [Setup and Installation](#setup-and-installation)
 - [Running Experiments](#running-experiments)
   - [Speculative Decoding](#speculative-decoding)
-  - [HumanEval](#human-eval-on-quantized-models)
-- [Usage](#usage)
-- [Logging and Evaluation](#logging-and-evaluation)
-- [Observations from Results](#observations-from-results)
+  - [Quantized Model Evaluation](#quantized-model-evaluation)
+    - [HumanEval Benchmark](#humaneval-benchmark)
+    - [Performance Metrics](#performance-metrics)
+- [Logging and Monitoring](#logging-and-monitoring)
+- [Observations and Findings](#observations-and-findings)
 - [Results](#results)
 - [Acknowledgements](#acknowledgements)
 
 ---
 
-## Storyline and Project Motivation
+## Project Motivation
 
-In the initial phases of the experiments, we were using two sets of models—Mistral 7B and LLaMA 2 7B—for our evaluation. When we began experimenting with speculative decoding, we realized that draft versions of these models needed to be quantized to fit our runtime constraints.
+In the initial stages, we worked with Mistral 7B and LLaMA 2 7B models. During speculative decoding experiments, we realized the draft models needed to be quantized due to memory constraints. However, quantization degraded performance significantly.
 
-However, the results with quantized models as draft models were suboptimal, leading us to transition to the LLaMA 3 family. Here, we primarily use the 8B, 3B, and 1B models, all of which are compatible with our compute setup. These models allowed us to explore a broader range of configurations and improved both performance and deployment feasibility.
-
-The code for all of our runs from before are in the ```legacy-code/``` folder. We have cited the important parts which were motivations for our final output code. 
+We later transitioned to the **LLaMA 3** family—particularly the 8B, 3B, and 1B models—which are more compatible with our runtime and provide better support for mixed-precision inference. Our final code uses these models. Earlier runs are archived in the `legacy-code/` directory.
 
 ---
 
-## Hardware Used
+## Hardware Setup
 
-All experiments are conducted on NVIDIA L4 GPUs with 24 GB of VRAM from Google Cloud Platform. Each compute instance is provisioned with:
+All experiments were conducted on **Google Cloud** instances with:
+- NVIDIA L4 GPUs (24 GB VRAM)
 - 16 vCPUs
-- 64 GB system RAM
-- Identical software and driver environments to ensure consistent benchmarking
+- 64 GB RAM
+
+Identical environments were maintained across all runs for consistency.
 
 ---
 
 ## Setup and Installation
 
-Clone the repository and install the required dependencies:
+Clone the repository and install dependencies:
 
 ```bash
 git clone https://github.com/nin-ran-jan/HPML_Project.git
@@ -72,7 +49,7 @@ cd HPML_Project
 pip install -r requirements.txt
 ```
 
-If you are using Conda:
+If using Conda:
 
 ```bash
 conda create -n hpml_env python=3.10
@@ -80,58 +57,46 @@ conda activate hpml_env
 pip install -r requirements.txt
 ```
 
-Ensure the following libraries are installed:
-- `torch`
+Main requirements:
 - `transformers`
 - `datasets`
+- `torch`
 - `bitsandbytes`
 - `wandb`
 - `tqdm`
 
 ---
 
-## Running Experiments
+# Running Experiments
 
-### Speculative Decoding
+## Speculative Decoding
 
-To run speculative decoding, use the following shell script:
+To benchmark speculative decoding:
 
 ```bash
 bash spec-decoding/run_specdecode.sh
 ```
 
-#### Required Parameters
+This script evaluates speedups using a target model and a smaller draft model.
 
-The script accepts the following arguments:
-
-- `model`: The target LLM model. Example: `meta-llama/Llama-3.1-8B`
-- `aux-model`: The assistant (draft) model used for speculative decoding. Example: `meta-llama/Llama-3.2-1B`
-- `dtype`: Data type for model loading. Default: `bf16`
-- `--target-quant`: Quantization setting for target model. Options: `none`, `8bit`, `4bit`
-- `--draft-quant`: Quantization setting for draft model. Options: `none`, `8bit`, `4bit`
-- `--num-samples`: Number of test samples. Default: `500`
-- `--max-prompt`: Prompt length. Default: `128`
-- `--gen-toks`: Number of tokens to generate. Default: `128`
-- `--assist-toks`: Number of assistant tokens per step. Default: `5`
-- `--compile`: Whether to use `torch.compile` for the models
-- `--do-sample`: Enable sampling instead of greedy decoding
-- `--wandb-project`: Weights & Biases project name
-- `--wandb-entity`: Weights & Biases entity name
-- `--wandb-run`: Weights & Biases run name
+#### Key Arguments
+- `--model`, `--aux-model`: Target and assistant model names
+- `--dtype`: Data type (e.g., `bf16`, `fp16`)
+- `--target-quant`, `--draft-quant`: Quantization level (`none`, `8bit`, `4bit`)
+- `--assist-toks`: Number of assistant tokens per generation step
+- `--do-sample`: Enable sampling (stochastic decoding)
+- `--compile`: Apply `torch.compile` for speedup
+- `--wandb-*`: Weights & Biases logging options
 
 #### Example
 
 ```bash
 python run_specdecode.py meta-llama/Llama-3.1-8B \
   --aux-model meta-llama/Llama-3.2-1B \
-  --dtype bf16 \
-  --target-quant none \
-  --draft-quant none \
-  --num-samples 500 \
-  --assist-toks 5 \
-  --gen-toks 128 \
-  --compile \
-  --do-sample \
+  --target-quant none --draft-quant none \
+  --dtype bf16 --assist-toks 5 \
+  --gen-toks 128 --num-samples 500 \
+  --compile --do-sample \
   --wandb-project final_project \
   --wandb-entity ns3888-hpml \
   --wandb-run llama3-specdecode8-1_sampling_true_toks5_L4
@@ -139,70 +104,130 @@ python run_specdecode.py meta-llama/Llama-3.1-8B \
 
 ---
 
-## Human Eval on Quantized Models
+## Quantized Model Evaluation
 
-To run human evals:
+This section benchmarks quantized and non-quantized models using two methods:
+
+### HumanEval Benchmark
+
+To evaluate the functional correctness of generated Python code:
 
 ```bash
-git clone https://github.com/openai/human-eval.git
-pip install -e human-eval
+bash quantization/run_human_eval.sh
 ```
 
-Then use the provided evaluation scripts to assess code generation quality and correctness.
+#### Description
+This script uses [OpenAI’s HumanEval](https://github.com/openai/human-eval) dataset to evaluate generated code completions for correctness (e.g., `pass@1`).
+
+#### Custom Arguments
+- `--model_id`: Model name (e.g., `meta-llama/Llama-3.1-8B`)
+- `--quant`: Quantization level (`16`, `8`, `4`)
+- `--num_tasks`: Number of tasks (default: 40, max: 164)
+- `--num_samples`: Completions per task
+- `--sampling`: Enable sampling (default: greedy)
+- `--wandb-*`: Weights & Biases logging
+
+#### Example
+
+```bash
+python quantization/run_human_eval.py \
+  --model_id meta-llama/Llama-3.1-8B \
+  --quant 8 \
+  --num_tasks 164 \
+  --num_samples 1 \
+  --wandb_project final_project \
+  --wandb_entity ns3888-hpml \
+  --sampling
+```
+
+Outputs:
+- `samples.jsonl`: Completions
+- `samples.jsonl_results.jsonl`: Evaluation results
 
 ---
 
-## Usage
+### Performance Metrics
 
-- The main script loads both the target and draft models and benchmarks assisted (speculative) decoding performance.
-- It uses `wikitext-2-raw-v1` as the test dataset, filtering out short samples.
+To evaluate **perplexity**, **latency**, and **throughput** on text generation:
+
+```bash
+bash quantization/run_metrics.sh
+```
+
+#### Description
+Evaluates model performance on `wikitext-2-raw-v1` using:
+- Sliding window perplexity
+- Deterministic text generation latency
+- Tokens/sec throughput
+
+#### Key Arguments
+- `--quant_mode`: Quant level (`16bit`, `8bit`, `4bit`)
+- `--eval_mode`: `perplexity`, `generation`, or `both`
+- `--num_samples`: Number of generation prompts
+- `--stride`, `--max_length`: For perplexity windowing
+
+#### Example
+
+```bash
+python quantization/run_metrics.py \
+  --model_id meta-llama/Llama-3.1-8B \
+  --quant_mode 4bit \
+  --eval_mode both \
+  --num_samples 200
+```
+
+All metrics are logged to Weights & Biases under relevant tags:
+- `perplexity/perplexity`
+- `generation/latency_per_token`
+- `generation/throughput`
 
 ---
 
-## Logging and Evaluation
+## Logging and Monitoring
 
-Evaluation metrics are automatically logged to Weights & Biases:
-- Latency per token
-- Throughput (tokens/sec)
-- Accept rate (Number of tokens accepted by the draft model)
-- Number of rollbacks (In case of mismatch between draft and target model, a rollback occurs. )
+All experiments use [Weights & Biases](https://wandb.ai/) for experiment tracking. Set your own `--wandb-project` and `--wandb-entity`, or modify the defaults:
 
-Sample wandb logs include:
+```bash
+wandb_project="final_project"
+wandb_entity="ns3888-hpml"
+```
 
+Example metrics tracked:
 ```json
 {
-  "assisted_latency_tok": 0.04321,
-  "assisted_thr": 23.14,
-  "accept_rate": 0.82,
-  "total_rollbacks": 47
+  "generation/latency_per_token": 0.0432,
+  "generation/throughput": 23.14,
+  "humaneval/pass@1": 0.82,
+  "perplexity/perplexity": 9.83
 }
 ```
 
-TODO: provide wandb link to the project. 
+TODO: Add public WandB link here
 
 ---
 
-## Observations from Results
+## Observations and Findings
 
 ### Speculative Decoding
 
-1. The best performance was achieved with the 8B–1B pairing, using 3 assistant tokens, no sampling, and a confidence threshold of 0.2.
-2. There is a non-linear relationship between assistant token count and speedup. A value of 3 strikes a balance; 1 token leads to slow draft generation, while higher values cause excessive rejections and rollbacks.
-3. Greedy decoding (no sampling) produces more stable results with better performance compared to stochastic sampling.
-4. Increasing the size of the draft model (e.g., from 1B to 3B) results in performance degradation. Despite higher acceptance rates, the slower draft generation due to model size leads to a net slowdown.
-5. Across all quantization configurations, performance consistently drops. GPU utilization is noticeably lower with quantized models, likely due to hardware-level optimizations that favor `bf16` over `int8` or `nf4`.
+1. The 8B–1B model pair consistently gave the best results with 3 assistant tokens, no sampling, and a confidence threshold of 0.2.
+2. The number of assistant tokens had a clear tradeoff: too few (ex. 1) slowed things down due to limited draft generation, while too many led to excessive rejections and rollbacks.
+3. Greedy decoding (no sampling) consistently outperformed sampled generation in terms of speed and alignment between draft and target outputs.
+4. Using a larger draft model like 3B improved acceptance rates slightly but resulted in slower generation overall—net performance dropped.
+5. Across the board, quantized models showed lower GPU utilization and worse performance, likely due to the L4 GPU’s hardware bias toward bf16 rather than int8 or nf4.
 
-### Human Eval
+### Quantized Model Evaluation
 
-1. TODO
+1. TODO: Add results table summarizing `pass@1` across quantization levels
 
 ---
 
 ## Results
 
-TODO: need to add tables from the experiments tracked
+TODO: Add benchmark tables for latency, throughput, perplexity, and pass@1.
+
+---
 
 ## Acknowledgements
 
-This project is part of the HPML course at Columbia University. Models and datasets used are sourced from HuggingFace and OpenAI's HumanEval.
-
+This work was done as part of the High Performance Machine Learning course at Columbia University. We thank the open-source contributors of HuggingFace, OpenAI's HumanEval, and BitsAndBytes for tooling support. We also thank Google Cloud for providing the development environment. 

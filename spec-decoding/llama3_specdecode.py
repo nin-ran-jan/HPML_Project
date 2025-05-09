@@ -178,27 +178,27 @@ def run_loop(spec_decode: bool):
     return m
 
 assist   = run_loop(True)
-# baseline = run_loop(False)
+baseline = run_loop(False)
 
-baseline = {
-    "lat": 0.06506,
-    "thr": 15.37051,
-}
+# baseline = { # from our baseline run on Llama3.1-8b
+#     "lat": 0.06506,
+#     "thr": 15.37051,
+# }
 
 
-# spd = baseline["lat"]/assist["lat"]
+spd = baseline["lat"]/assist["lat"]
 print("\n=== RESULTS ===")
-# print(f"Baseline  : {baseline['lat']:.4f} s/tok | {baseline['thr']:.2f} tok/s")
+print(f"Baseline  : {baseline['lat']:.4f} s/tok | {baseline['thr']:.2f} tok/s")
 print(f"Assisted  : {assist['lat']:.4f} s/tok | {assist['thr']:.2f} tok/s")
-# print(f"Speed-up  : {spd:.2f}×")
+print(f"Speed-up  : {spd:.2f}×")
 print(f"Accept-rate: {assist['accrate']:.2f} (roll-backs {assist['rb']})")
 
 wandb.log({
-    # "baseline_latency_tok": baseline["lat"],
-    # "baseline_thr":         baseline["thr"],
+    "baseline_latency_tok": baseline["lat"],
+    "baseline_thr":         baseline["thr"],
     "assisted_latency_tok": assist["lat"],
     "assisted_thr":         assist["thr"],
-    # "speedup_ratio":        spd,
+    "speedup_ratio":        spd,
     "accept_rate":          assist["accrate"],
     "total_rollbacks":      assist["rb"],
 })
