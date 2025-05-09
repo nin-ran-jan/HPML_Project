@@ -1,3 +1,4 @@
+# this file gives us information on our data set including how many samples are in the tests set, min/max tokens per sample etc.
 from datasets import load_dataset
 from transformers import AutoTokenizer
 import numpy as np

@@ -1,3 +1,4 @@
+# uses our raw data from the experiments to plot our results for pure quantization
 import os
 import pandas as pd
 import matplotlib.pyplot as plt

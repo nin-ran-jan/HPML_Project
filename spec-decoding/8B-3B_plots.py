@@ -1,3 +1,4 @@
+# uses our raw data from experiments to plot the metrics for 8B-3B spec decoding
 import os
 import pandas as pd
 import matplotlib.pyplot as plt

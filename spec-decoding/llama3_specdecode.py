@@ -7,19 +7,27 @@ from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
 from transformers.generation.candidate_generator import AssistedCandidateGenerator
 from transformers.generation.candidate_generator import CandidateGenerator
 
-
+# use bash script to specify the parameters you want when you run this code
 arg = argparse.ArgumentParser()
+
+# specify target and draft model here
 arg.add_argument("model",              type=str)
 arg.add_argument("--aux-model",        type=str, required=True)
 arg.add_argument("--dtype",            type=str, default="bf16")
+# specify if you want quantization for the target and draft models and to what precision if so
 arg.add_argument("--target-quant",        type=str, choices=["none","8bit","4bit"], default="none")
 arg.add_argument("--draft-quant",         type=str, choices=["none","8bit","4bit"], default="none")
+# specify the number of samples you want to run on
 arg.add_argument("--num-samples",      type=int, default=500)
+# specifies the max prompt length so it will clip any prompts beyond this value
 arg.add_argument("--max-prompt",       type=int, default=128)
+# specifies how many tokens will be generated 
 arg.add_argument("--gen-toks",         type=int, default=128)
+# specifies the number of tokens the draft model will generate and propose to the target model
 arg.add_argument("--assist-toks",      type=int, default=8)
 arg.add_argument("--compile",          action="store_true",
                  help="torch.compile() the target")
+# either going to be greedy or sampling
 arg.add_argument("--do-sample",          action="store_true",
                  help="sample for the model instead of greedy")
 
@@ -38,6 +46,7 @@ wandb.init(project=args.wandb_project,
            name   =args.wandb_run,
            config =vars(args))
 
+# bitsandbytes quantization
 def make_bnb(quant):
     if quant == "8bit":
         return BitsAndBytesConfig(load_in_8bit=True)
@@ -78,6 +87,7 @@ if args.compile and args.draft_quant == "none":
 tok = AutoTokenizer.from_pretrained(args.model, use_fast=False)
 tok.pad_token = tok.eos_token
 
+# subclass implemented to overload methods when necessary and keep track of key metrics such as rollbacks and acceptance rate
 class MeteredDraft(AssistedCandidateGenerator):
     def __init__(self,*a,**k):
         super().__init__(*a,**k)

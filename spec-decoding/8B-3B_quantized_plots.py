@@ -1,3 +1,5 @@
+# uses our raw data from experiments to plot the metrics from our quantized configurations of 8B-3B spec decoding
+
 import os, pandas as pd, matplotlib.pyplot as plt
 
 data = [
