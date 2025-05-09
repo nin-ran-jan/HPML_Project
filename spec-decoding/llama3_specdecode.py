@@ -78,24 +78,6 @@ if args.compile and args.draft_quant == "none":
 tok = AutoTokenizer.from_pretrained(args.model, use_fast=False)
 tok.pad_token = tok.eos_token
 
-# print("Loading target …")
-# target = AutoModelForCausalLM.from_pretrained(
-#             args.model, torch_dtype=dtype, device_map="auto").eval()
-# if args.compile:
-#     target = torch.compile(target, mode="reduce-overhead")
-# print("Loading target …")
-# target = AutoModelForCausalLM.from_pretrained(
-#             args.model, torch_dtype=dtype, device_map="auto").eval()
-# if args.compile:
-#     target = torch.compile(target, mode="reduce-overhead")
-
-# print("Loading draft  …")
-# draft  = AutoModelForCausalLM.from_pretrained(
-#             args.aux_model, torch_dtype=dtype, device_map="auto").eval()
-# print("Loading draft  …")
-# draft  = AutoModelForCausalLM.from_pretrained(
-#             args.aux_model, torch_dtype=dtype, device_map="auto").eval()
-
 class MeteredDraft(AssistedCandidateGenerator):
     def __init__(self,*a,**k):
         super().__init__(*a,**k)
