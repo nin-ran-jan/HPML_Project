@@ -1,8 +1,11 @@
 import wandb
 import pandas as pd
 
+# Util file to get Avg GPU utilization from a pariticular run
+
 api = wandb.Api()
-run = api.run("ns3888-hpml/final_project/pkw4f7hz")
+# modify run here
+run = api.run("ns3888-hpml/final_project/runs/t4cqm9vc")
 
 # Get system metrics history
 history = run.history(stream="system")

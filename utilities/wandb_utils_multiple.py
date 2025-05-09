@@ -1,7 +1,9 @@
 import wandb
 import pandas as pd
 
-# List of your W&B run paths: "entity/project/run_id"
+# Util file to get Avg GPU util for all runs in the below list
+
+# list of your WandB run paths: "entity/project/run_id"
 run_ids = [
     "ns3888-hpml/final_project/plv02j58",
     "ns3888-hpml/final_project/0jij36vh",
