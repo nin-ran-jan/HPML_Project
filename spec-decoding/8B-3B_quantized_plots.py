@@ -1,12 +1,11 @@
 import os, pandas as pd, matplotlib.pyplot as plt
 
 data = [
-    dict(cfg="8-bit draft", tp=9.358,  lat=106.863, speed=0.609, acc=0.663),
-    dict(cfg="4-bit draft", tp=10.627, lat=94.103, speed=0.691, acc=0.637),
-    dict(cfg="8-bit target", tp=12.804, lat=78.101, speed=0.833, acc=0.661),
-    dict(cfg="8-bit tgt + 4-bit drft", tp=8.607, lat=116.188, speed=0.560, acc=0.634),
+    dict(cfg="8-bit draft", tp=9.358, lat=106.863, speed=0.609, acc=0.663, util=42.91),
+    dict(cfg="4-bit draft", tp=10.627, lat=94.103, speed=0.691, acc=0.637, util=74.52),
+    dict(cfg="8-bit target", tp=12.804, lat=78.101, speed=0.833, acc=0.661, util=60.49),
+    dict(cfg="8-bit tgt + 4-bit drft", tp=8.607, lat=116.188, speed=0.560, acc=0.634, util=55.15),
 ]
-
 df = pd.DataFrame(data)
 
 out_dir = "8B-3B_quant_plots"
@@ -26,3 +25,4 @@ plot_metric("tp", "tokens / s", "throughput.png")
 plot_metric("lat", "latency (ms / tok)", "latency.png")
 plot_metric("speed", "speed-up × baseline", "speedup.png")
 plot_metric("acc", "accept-rate", "accept_rate.png")
+plot_metric("util", "GPU util (%)","gpu_util.png")

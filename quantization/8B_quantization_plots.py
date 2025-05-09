@@ -14,11 +14,17 @@ hum_data = [
 hum_df = pd.DataFrame(hum_data)
 
 wiki_data = [
-    dict(q="4‑bit", tp=21.036, lat=47.538, ppl=6.242),
-    dict(q="8‑bit", tp=9.028, lat=110.765, ppl=5.640),
-    dict(q="16‑bit", tp=15.499, lat=64.519, ppl=5.563),
+    dict(q="4-bit",  tp=21.036, lat=47.538,  ppl=6.242, util=70.37),
+    dict(q="8-bit",  tp=9.028,  lat=110.765, ppl=5.640, util=48.93),
+    dict(q="16-bit", tp=15.499, lat=64.519,  ppl=5.563, util=97.97),
 ]
-wiki_df = pd.DataFrame(wiki_data).set_index("q").loc[["4‑bit","8‑bit","16‑bit"]].reset_index()
+wiki_df = (
+    pd.DataFrame(wiki_data)
+      .set_index("q")
+      .loc[["4-bit", "8-bit", "16-bit"]] 
+      .reset_index()
+)
+
 
 os.makedirs("8B_humaneval_plots", exist_ok=True)
 os.makedirs("8B_wikitext_plots", exist_ok=True)
@@ -55,3 +61,4 @@ def bar_plot(metric, ylabel, fname, color):
 bar_plot("tp",  "tokens / s", "throughput_bar.png", "tab:green")
 bar_plot("lat", "latency (ms / tok)", "latency_bar.png", "tab:red")
 bar_plot("ppl", "perplexity", "perplexity_bar.png", "tab:purple")
+bar_plot("util", "GPU util (%)", "gpu_util_bar.png", "tab:brown")
