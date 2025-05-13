@@ -201,6 +201,7 @@ Below are the primary arguments you can configure when running `run_specdecode.p
 | `--draft-quant`  | Quantization for the draft model (`none`, `8bit`, `4bit`)                   |
 | `--assist-toks`  | Number of assistant tokens predicted by the draft model per step           |
 | `--gen-toks`     | Number of tokens to generate                                                |
+| `--assistant-confidence-threshold`     | The logit confidence threshold to early reject assistant tokens                                   |
 | `--num-samples`  | Number of prompts to evaluate                                               |
 | `--do-sample`    | Enable sampling during generation (`True` for stochastic, default is greedy)|
 | `--compile`      | Whether to apply `torch.compile()` for the target model                     |

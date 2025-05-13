@@ -25,6 +25,8 @@ arg.add_argument("--max-prompt",       type=int, default=128)
 arg.add_argument("--gen-toks",         type=int, default=128)
 # specifies the number of tokens the draft model will generate and propose to the target model
 arg.add_argument("--assist-toks",      type=int, default=8)
+# the logit confidence threshold to early reject assistant tokens 
+arg.add_argument("--assistant-confidence-threshold",      type=float, default=0.2)
 arg.add_argument("--compile",          action="store_true",
                  help="torch.compile() the target")
 # either going to be greedy or sampling
@@ -97,6 +99,7 @@ class MeteredDraft(AssistedCandidateGenerator):
         self.generation_config.num_assistant_tokens_schedule = "constant"
         self.generation_config.do_sample = args.do_sample
         self.accepted = self.rejected = self.rollbacks = 0
+        self.assistant_confidence_threshold = args.assistant_confidence_threshold
 
     def update_candidate_strategy(self, ids, scores, nmatch):
         super().update_candidate_strategy(ids, scores, nmatch)
@@ -117,7 +120,7 @@ class MeteredDraft(AssistedCandidateGenerator):
         Patching to prevent threshold from early stopping draft generation to match orig paper 
         Also setting threshold each time to prevent auto scaling of threshold
         """
-        generation_args["assistant_confidence_threshold"] = 0.2
+        generation_args["assistant_confidence_threshold"] = self.assistant_confidence_threshold
         return super()._generate_candidates(generation_args)
 
 print("Loading WikiText-2 …")
