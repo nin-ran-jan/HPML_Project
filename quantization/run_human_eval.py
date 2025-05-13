@@ -27,6 +27,7 @@ def load_model(model_id, quant):
     elif quant == "4":
         quant_config = BitsAndBytesConfig(
             load_in_4bit=True,
+            bnb_4bit_quant_type="nf4",
             bnb_4bit_compute_dtype=torch.float16
         )
         return AutoModelForCausalLM.from_pretrained(

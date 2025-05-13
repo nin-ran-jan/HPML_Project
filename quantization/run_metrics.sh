@@ -7,5 +7,5 @@ python quantization/run_metrics.py \
   --stride 512 \
   --max_length 2048 \
   --num_samples 200 \
-  --max_prompt_tokens 64 \
+  --max_prompt_tokens 128 \
   --max_new_tokens 128

@@ -19,6 +19,7 @@ def load_model(model_id, quant_mode):
     elif quant_mode == "4bit":
         quant_config = BitsAndBytesConfig(
             load_in_4bit=True,
+            bnb_4bit_quant_type="nf4",
             bnb_4bit_compute_dtype=torch.float16
         )
         return AutoModelForCausalLM.from_pretrained(
@@ -72,7 +73,7 @@ def evaluate_perplexity(model, tokenizer, stride=512, max_length=2048):
 
 
 # Evaluate generation latency + throughput on WikiText2
-def evaluate_generation(model, tokenizer, num_samples=200, max_prompt_tokens=64, max_new_tokens=128):
+def evaluate_generation(model, tokenizer, num_samples=200, max_prompt_tokens=128, max_new_tokens=128):
     dataset = load_dataset("wikitext", "wikitext-2-raw-v1", split="test")
     prompts = []
     for entry in dataset:
