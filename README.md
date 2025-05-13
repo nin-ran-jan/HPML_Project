@@ -256,4 +256,5 @@ These parameters control both perplexity (evaluated via a sliding window over Wi
 - Code is organized into `spec-decoding/`, `quantization/`, and `legacy-code/`
 - Model checkpoints are auto-downloaded via HuggingFace Hub
 - The `legacy-code/` folder contains early experiments and scripts using Mistral 7B and LLaMA 2 7B models. These were part of the initial phase before transitioning to the LLaMA 3 family due to performance and compatibility considerations
+- Full Medium article available on: https://medium.com/@ns3888/optimizing-llm-inference-with-speculative-decoding-and-quantization-ccfb491e67f5
 - For issues or questions, contact: niranjan.s@columbia.edu, mmk2258@columbia.edu, rh3129@columbia.edu
